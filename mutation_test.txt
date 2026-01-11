@@ -1,0 +1,6 @@
+fn increment() {
+    counter = counter + 1
+}
+counter = 0
+increment()
+print(counter)

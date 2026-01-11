@@ -1,0 +1,14 @@
+fn factorial(n) {
+    if (n == 0) {
+        return 1
+    }
+    return n * factorial(n - 1)
+}
+
+fn main() {
+    i = 0
+    while (i < 10) {
+        print(factorial(i))
+        i = i + 1
+    }
+}
