@@ -125,6 +125,8 @@ class Parser:
 
     def parse_return_stmt(self):
         self.expect(TokenType.RETURN)
+        if self.current_token and self.current_token.type == TokenType.RBRACE:
+            return ReturnNode(None)
         return ReturnNode(self.parse_expression())
 
     def parse_expression(self):

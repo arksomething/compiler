@@ -62,7 +62,8 @@ class Interpreter:
                 for statement in node.statements:
                     self.interpret(statement)
         elif node_type == "ReturnNode":
-            raise ReturnValue(self.interpret(node.expr))
+            v = None if node.expr is None else self.interpret(node.expr)
+            raise ReturnValue(v)
         elif node_type == "NumberNode":
             return int(node.value)
         elif node_type == "IdentifierNode":

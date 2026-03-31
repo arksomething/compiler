@@ -47,11 +47,11 @@ class WhileNode:
         return f"WhileNode(condition={self.condition}, statements={self.statements})"
 
 class ReturnNode:
-    def __init__(self, expr):
+    def __init__(self, expr=None):
         self.expr = expr
 
     def __repr__(self):
-        return f"ReturnNode(expr={self.expr})"
+        return f"ReturnNode(expr={self.expr!r})"
 
 class NumberNode:
     def __init__(self, value):

@@ -39,9 +39,11 @@ def interpret(program_node):
 def generate(program_node):
     generator = IRGenerator()
     generator.generate(program_node)
+    generator.close()
+    return generator.lines
 
 def liveness(ir):
-    analyzer = Liveness()
+    analyzer = Liveness(ir)
     return analyzer.analyze()
     
 def scan_file(file_path: str | Path, show_tokens: bool = False, show_ast: bool = False) -> None:
@@ -68,7 +70,8 @@ def scan_file(file_path: str | Path, show_tokens: bool = False, show_ast: bool =
         print()
 
     interpret(ast)
-    generate(ast)
+    ir = generate(ast)
+    liveness(ir)
 
 
 if __name__ == "__main__":

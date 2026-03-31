@@ -21,6 +21,7 @@ class IRGenerator:
     def __init__(self, output_path=None):
         self.output_path = output_path
         self.output_file = None
+        self.lines = []
         self.reg = 0
         self.label = 0
         self.terminated = False
@@ -39,10 +40,12 @@ class IRGenerator:
         return f".{ret}"
 
     def emit(self, instruction):
+        line = str(instruction)
+        self.lines.append(line)
         if self.output_file:
-            self.output_file.write(str(instruction) + "\n")
+            self.output_file.write(line + "\n")
         else:
-            print(instruction)
+            print(line)
 
     def generate(self, node):
         if self.terminated:
@@ -110,8 +113,11 @@ class IRGenerator:
             self.terminated = False
             self.emit(f"{end}:")
         elif node_type == "ReturnNode":
-            reg = self.generate(node.expr)
-            self.emit(f"RET {reg}")
+            if node.expr is not None:
+                reg = self.generate(node.expr)
+                self.emit(f"RET {reg}")
+            else:
+                self.emit("RET")
             self.terminated = True
         elif node_type == "NumberNode":
             reg = self.new_register()
