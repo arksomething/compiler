@@ -44,8 +44,6 @@ class IRGenerator:
         self.lines.append(line)
         if self.output_file:
             self.output_file.write(line + "\n")
-        else:
-            print(line)
 
     def generate(self, node):
         if self.terminated:

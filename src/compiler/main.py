@@ -8,12 +8,14 @@ try:
     from .lexer import tokenize
     from .parser import Parser
     from .liveness import Liveness
+    from .generation import codegen
 except ImportError:
     from .liveness import Liveness
     from interpreter import Interpreter
     from ir import IRGenerator
     from lexer import tokenize
     from parser import Parser
+    from generation import codegen
 
 def print_ast(node, indent=0):
     """Recursively prints the AST with indentation."""
@@ -71,7 +73,8 @@ def scan_file(file_path: str | Path, show_tokens: bool = False, show_ast: bool =
 
     interpret(ast)
     ir = generate(ast)
-    liveness(ir)
+    ir, coloring = liveness(ir)
+    codegen(ir, coloring)
 
 
 if __name__ == "__main__":
