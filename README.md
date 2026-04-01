@@ -1,65 +1,115 @@
-# Modern Python Toolchain with `uv`
+# Toy Compiler in Python
 
-This project is set up with a modern Python toolchain using `uv` for package management, `ruff` for linting/formatting, and `pytest` for testing.
+A small educational compiler pipeline for a custom language with functions, control
+flow, expressions, and recursion.
 
-## 🚀 Quick Start
+Running the CLI currently does all of the following in sequence:
 
-### 1. Install `uv`
-`uv` is an extremely fast Python package installer and resolver, written in Rust. It's a drop-in replacement for `pip`, `pip-tools`, and `virtualenv`.
+1. Tokenize source text
+2. Parse tokens into an AST
+3. Interpret the AST (executes the program)
+4. Generate IR
+5. Run liveness analysis and register coloring/spill insertion
+6. Pass IR and allocation data to the codegen hook
 
-**Windows (PowerShell):**
-```powershell
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+## Language at a glance
+
+### Supported constructs
+
+- Function declarations: `fn name(param1, param2) { ... }`
+- Variable assignment: `x = 42`
+- Printing: `print(expr)`
+- Conditionals: `if (condition) { ... }`
+- Loops: `while (condition) { ... }`
+- Returns: `return` and `return expr`
+- Function calls: `f(1, 2)`
+
+### Expressions and operators
+
+- Integer literals (for example `10`)
+- Identifiers
+- Parenthesized expressions
+- Arithmetic: `+`, `-`, `*`, `/` (integer division)
+- Comparisons: `==`, `!=`, `<`, `>`
+
+### Example program
+
+```txt
+fn fib(n) {
+    if (n < 2) {
+        return n
+    }
+    return fib(n - 1) + fib(n - 2)
+}
+
+fn main() {
+    print(fib(10))
+    return
+}
+
+main()
 ```
 
-**macOS/Linux:**
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
+## Quick start
 
-### 2. Set Up the Project
-Once `uv` is installed, you can create a virtual environment and install dependencies:
+### Requirements
+
+- Python 3.10+
+- `uv` ([installation docs](https://docs.astral.sh/uv/getting-started/installation/))
+
+### Setup
 
 ```bash
-# Create a virtual environment
 uv venv
-
-# Activate it (Windows - Git Bash / PowerShell)
-source .venv/Scripts/activate
-# Activate it (macOS/Linux)
-source .venv/bin/activate
-
-# Install dependencies from pyproject.toml
+source .venv/bin/activate  # macOS/Linux
+# source .venv/Scripts/activate  # Windows PowerShell/Git Bash
 uv pip install -e ".[dev]"
 ```
 
-## 🛠️ Toolchain Usage
+You can also skip activation and use `uv run ...` for all commands.
 
-### Package Management
-- **Add a dependency:** `uv add requests` (or manually add to `pyproject.toml` and run `uv pip install .`)
-- **Sync environment:** `uv pip compile pyproject.toml -o requirements.txt` (optional, `uv` handles this internally for many tasks).
+## Run the compiler
 
-### Linting & Formatting (`ruff`)
-`ruff` is an incredibly fast Python linter and code formatter.
+```bash
+# Run a program
+uv run python -m compiler.main sample.txt
 
-- **Check linting:** `uv run ruff check .`
-- **Fix linting errors:** `uv run ruff check --fix .`
-- **Format code:** `uv run ruff format .`
+# Try recursion example
+uv run python -m compiler.main fib.txt
 
-### Testing (`pytest`)
-- **Run tests:** `uv run pytest`
+# Debug frontend stages
+uv run python -m compiler.main sample.txt --tokens --ast
+```
 
-### Type Checking (`mypy`)
-- **Run type check:** `uv run mypy src`
+What you will see:
 
-## 📂 Project Structure
-- `src/`: Source code.
-- `tests/`: Unit and integration tests.
-- `pyproject.toml`: Project configuration and dependencies.
+- Program output from the interpreter (for example `55`)
+- The IR plus register-allocation metadata printed by `codegen` (currently a stub)
 
-## Why this toolchain?
-1. **Speed**: `uv` and `ruff` are written in Rust and are orders of magnitude faster than traditional Python tools.
-2. **Simplicity**: `pyproject.toml` centralizes configuration for almost all tools.
-3. **Reliability**: `uv` provides reproducible builds and efficient dependency resolution.
+## Development commands
 
-# compiler
+```bash
+uv run pytest
+uv run ruff check .
+uv run ruff format .
+uv run mypy src
+```
+
+## Project layout
+
+- `src/compiler/lexer.py`: tokenizer
+- `src/compiler/parser.py`: recursive-descent parser
+- `src/compiler/ast_nodes.py`: AST node definitions
+- `src/compiler/interpreter.py`: tree-walk interpreter with lexical scoping
+- `src/compiler/ir.py`: IR generation
+- `src/compiler/liveness.py`: CFG, liveness, interference graph, coloring/spilling
+- `src/compiler/generation.py`: codegen wiring hook
+- `tests/`: lexer, parser, and interpreter tests
+- `sample.txt`, `fib.txt`: runnable example programs
+
+## Current limitations
+
+- No `else` branch support yet
+- Strings are tokenized but not parsed/executed end-to-end
+- Register allocator is intentionally simple (`k = 2` colors)
+- Backend code generation is not implemented yet (stub output only)
