@@ -1,3 +1,60 @@
+import re
+from collections import defaultdict
+
 def codegen(ir, coloring):
     """Wiring hook: ``ir`` is IR lines; ``coloring`` has register_colors and spilled_registers."""
     print(ir, coloring)
+
+    func_regs = defaultdict(list)
+    arg_n = 0
+    output = []
+
+    for i, line in enumerate(ir):
+        if not line:
+            continue
+
+        split = re.split(r"[()\s]+", line)
+        isAssignment = len(split) > 1 and split[1] == "="
+        first = split[0]
+        if not first:
+            continue
+        third = split[2] if len(split) > 2 else None
+        fourth = split[3] if len(split) > 3 else None
+        fifth = split[4] if len(split) > 4 else None
+
+        if first[0] == ".":
+            output.append(line[:-1])
+        elif first == "FUNC":
+            output.append("." + split[1])
+        elif first == "RET":
+            if len(split) > 1 and split[1]:
+                output.append(f"MOV rax {split[1]}")
+            output.append("RET")
+        elif first == "JMP":
+            output.append(f"JMP {third}")
+        elif third == "CALL":
+            output.append("CALL " + callee)
+        elif fourth == "+":
+            output.append(f"ADD {first} {third} {fifth}")
+        elif fourth == "-":
+            output.append(f"SUB {first} {third} {fifth}")
+        elif fourth == "==":
+            output.append(f"CMPEQ {first} {third} {fifth}")
+        elif fourth == ">":
+            output.append(f"CMPLT {first} {fifth} {third}")
+        elif fourth == "<":
+            output.append(f"CMPLT {first} {third} {fifth}")
+        elif third == "CONST":
+            output.append(f"LDI {first} {fourth}")
+        elif len(split) == 3 and split[1] == "=":
+            output.append(f"MOV {first} {third}")
+        elif first == "BR" and len(split) >= 6 and split[2] == "label" and split[4] == "label":
+            reg = split[1][:-1] if split[1].endswith(",") else split[1]
+            true_l = split[3][:-1] if split[3].endswith(",") else split[3]
+            false_l = split[5][:-1] if split[5].endswith(",") else split[5]
+            t_name = true_l[1:] if true_l.startswith(".") else true_l
+            f_name = false_l[1:] if false_l.startswith(".") else false_l
+            output.append(f"BZ {reg} {f_name}")
+            output.append(f"BRA {t_name}")
+        else:
+            output.append("; " + line.strip())

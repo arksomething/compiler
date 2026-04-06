@@ -1,3 +1,4 @@
+FUNC fib (n)
 r0 = ARG 0
 r1 = CONST 2
 r2 = r0 < r1
@@ -19,4 +20,5 @@ FUNC main ()
 r10 = CONST 10
 r11 = CALL fib(r10)
 PRINT r11
+RET
 r12 = CALL main()

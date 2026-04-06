@@ -133,7 +133,7 @@ class Liveness:
                         self.interferenceGraph[out].add(reg)
 
     def coloring(self):
-        k = 2
+        k = 7
         working_graph = copy.deepcopy(self.interferenceGraph)
         working_keys = set(working_graph.keys())
         s = []

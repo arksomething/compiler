@@ -1,1 +1,37 @@
-print(1 + 1)
+.factorial
+; r0 = a0
+; r1 = CONST 0
+; r2 = r0 == r1
+; BR r2, label .0, label .1
+.0
+; r3 = CONST 1
+rax = r3
+RET
+JMP .2
+.1
+.2
+; r4 = CONST 1
+SUB r5 r0 r4
+a0 = r5
+CALL factorial
+r6 = rax
+; r7 = r0 * r6
+rax = r7
+RET
+.main
+; r8 = CONST 0
+; r9 = r8
+.3
+; r10 = CONST 10
+; r11 = r9 < r10
+; BR r11, label .4, label .5
+.4
+a0 = r9
+CALL factorial
+r12 = rax
+; PRINT r12
+; r13 = CONST 1
+ADD r14 r9 r13
+; r15 = r14
+JMP .3
+.5

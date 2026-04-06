@@ -6,14 +6,16 @@ try:
     from .interpreter import Interpreter
     from .ir import IRGenerator
     from .lexer import tokenize
+    from .lowering import lower_ir
     from .parser import Parser
     from .liveness import Liveness
     from .generation import codegen
 except ImportError:
-    from .liveness import Liveness
+    from liveness import Liveness
     from interpreter import Interpreter
     from ir import IRGenerator
     from lexer import tokenize
+    from lowering import lower_ir
     from parser import Parser
     from generation import codegen
 
@@ -73,6 +75,7 @@ def scan_file(file_path: str | Path, show_tokens: bool = False, show_ast: bool =
 
     interpret(ast)
     ir = generate(ast)
+    ir = lower_ir(ir)
     ir, coloring = liveness(ir)
     codegen(ir, coloring)
 
