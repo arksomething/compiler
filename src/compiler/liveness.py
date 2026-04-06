@@ -5,7 +5,7 @@ REGEX_REGISTERS = re.compile(r'\b[rR]\d+\b')
 
 
 def _spill_site_kind(reg: str, line: str) -> str:
-    """Whether ``reg`` is defined and/or used on this IR line."""
+    # how reg is used
     if "=" in line:
         lhs, rhs = line.split("=", 1)
         lhs_regs = set(REGEX_REGISTERS.findall(lhs))

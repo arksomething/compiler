@@ -1,0 +1,13 @@
+fn sum_to(n) {
+    s = 0
+    i = 1
+    while (i < n + 1) {
+        s = s + i
+        i = i + 1
+    }
+    return s
+}
+
+fn main() {
+    return sum_to(12)
+}

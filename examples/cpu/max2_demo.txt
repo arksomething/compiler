@@ -1,0 +1,10 @@
+fn max2(x, y) {
+    if (x > y) {
+        return x
+    }
+    return y
+}
+
+fn main() {
+    return max2(14, 9)
+}

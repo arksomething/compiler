@@ -1,0 +1,19 @@
+fn iter_fib(n) {
+    if (n < 2) {
+        return n
+    }
+    a = 0
+    b = 1
+    i = 2
+    while (i < n + 1) {
+        c = a + b
+        a = b
+        b = c
+        i = i + 1
+    }
+    return b
+}
+
+fn main() {
+    return iter_fib(11)
+}

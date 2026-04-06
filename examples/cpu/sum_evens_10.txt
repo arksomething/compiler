@@ -1,0 +1,13 @@
+fn sum_evens(limit) {
+    total = 0
+    i = 0
+    while (i < limit + 1) {
+        total = total + i
+        i = i + 2
+    }
+    return total
+}
+
+fn main() {
+    return sum_evens(10)
+}

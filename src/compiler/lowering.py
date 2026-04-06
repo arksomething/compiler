@@ -1,18 +1,13 @@
-"""Expand FUNC/ARG/CALL/RET, then run the same register passes as ``generation.py``."""
-
 import copy
 import re
 from collections import defaultdict
 
-
 def _split_token(word):
-    """``r2,`` -> (``r2``, ``,``) for int parsing; inner word has no trailing comma."""
     w = word.rstrip(",")
     return w, word[len(w) :]
 
 
 def lower_ir(ir):
-    """Return a new instruction list; ``ir`` is not mutated (ARG lines are rewritten on a copy)."""
     ir = copy.copy(ir)
     func_regs = defaultdict(list)
     arg_n = 0

@@ -1,0 +1,7 @@
+fn const42() {
+    return 42
+}
+
+fn main() {
+    return const42()
+}

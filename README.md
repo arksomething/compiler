@@ -1,7 +1,10 @@
 # Toy Compiler in Python
 
-A small educational compiler pipeline for a custom language with functions, control
-flow, expressions, and recursion.
+A small compiler for a custom language with functions, control flow, expressions, and recursion.
+
+Generally, this repo was written code-agent free with the exception of uninteresting tasks like wiring imports, README.md changes, or mass assembly/regex changes. 
+
+For a language-focused reference, see `LANGUAGE.md`.
 
 Running the CLI currently does all of the following in sequence:
 
@@ -48,8 +51,6 @@ fn main() {
 }
 ```
 
-Do not add a top-level `main()` call. The backend wraps emitted bytecode with `CALL main` and `JMP .exit` (see `processing.postprocess`); a manual `main()` in source becomes a second `CALL main` in the IR and breaks control flow. The tree-walk interpreter still runs first and only executes **top-level** statements, so a file that only defines functions (like the snippet above) will not run `main` during interpretation unless you add other top-level code.
-
 ## Quick start
 
 ### Requirements
@@ -72,14 +73,17 @@ You can also skip activation and use `uv run ...` for all commands.
 
 ```bash
 # Run a program
-uv run python -m compiler.main sample.txt
+uv run python -m compiler examples/language/sample.txt
 
 # Try recursion example
-uv run python -m compiler.main fib.txt
+uv run python -m compiler examples/language/fib.txt
 
 # Debug frontend stages
-uv run python -m compiler.main sample.txt --tokens --ast
+uv run python -m compiler examples/language/sample.txt --tokens --ast
 ```
+
+More sample inputs live under `examples/`, including backend-safe programs
+documented in `examples/cpu/CPU_PROGRAMS.md`.
 
 What you will see:
 
@@ -97,6 +101,8 @@ uv run mypy src
 
 ## Project layout
 
+- `src/compiler/__main__.py`: package entrypoint for `python -m compiler`
+- `src/compiler/cli.py`: CLI pipeline wiring
 - `src/compiler/lexer.py`: tokenizer
 - `src/compiler/parser.py`: recursive-descent parser
 - `src/compiler/ast_nodes.py`: AST node definitions
@@ -105,7 +111,7 @@ uv run mypy src
 - `src/compiler/liveness.py`: CFG, liveness, interference graph, coloring/spilling
 - `src/compiler/generation.py`: codegen wiring hook
 - `tests/`: lexer, parser, and interpreter tests
-- `sample.txt`, `fib.txt`: runnable example programs
+- `examples/`: organized source-language and backend-safe sample programs
 
 ## Current limitations
 

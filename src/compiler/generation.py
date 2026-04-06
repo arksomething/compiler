@@ -2,8 +2,6 @@ import re
 from collections import defaultdict
 
 def codegen(ir, coloring):
-    """``ir`` is IR lines; ``coloring`` has register_colors and spilled_registers."""
-
     func_regs = defaultdict(list)
     arg_n = 0
     output = []

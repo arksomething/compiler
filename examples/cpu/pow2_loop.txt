@@ -1,0 +1,13 @@
+fn pow2(n) {
+    value = 1
+    i = 0
+    while (i < n) {
+        value = value + value
+        i = i + 1
+    }
+    return value
+}
+
+fn main() {
+    return pow2(6)
+}
