@@ -15,6 +15,13 @@ class Environment:
     def define(self, key):
         self.vars[key] = self._reg_allocator()
         return self.vars[key]
+
+    def assign(self, key):
+        if key in self.vars:
+            return self.vars[key]
+        elif self.parent:
+            return self.parent.assign(key)
+        return None
     
 
 class IRGenerator:
@@ -74,7 +81,9 @@ class IRGenerator:
             self.current_env = old_env
         elif node_type == "AssignmentNode":
             reg = self.generate(node.expr)
-            dest = self.current_env.define(node.name)
+            dest = self.current_env.assign(node.name)
+            if dest is None:
+                dest = self.current_env.define(node.name)
             self.emit(f"{dest} = {reg}")
         
         elif node_type == "PrintNode":

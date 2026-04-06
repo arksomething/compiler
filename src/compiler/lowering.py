@@ -22,7 +22,7 @@ def lower_ir(ir):
         if not line:
             continue
 
-        split = re.split(r"[()\s]+", line)
+        split = re.split(r"[(),\s]+", line)
         first = split[0]
         if not first:
             continue
@@ -45,7 +45,7 @@ def lower_ir(ir):
                 to_write = True
                 while to_write and cur_line_i < len(ir):
                     cur_line = ir[cur_line_i]
-                    cur_split = re.split(r"[()\s]+", cur_line)
+                    cur_split = re.split(r"[(),\s]+", cur_line)
                     if (
                         len(cur_split) >= 4
                         and cur_split[1] == "="

@@ -46,9 +46,9 @@ fn main() {
     print(fib(10))
     return
 }
-
-main()
 ```
+
+Do not add a top-level `main()` call. The backend wraps emitted bytecode with `CALL main` and `JMP .exit` (see `processing.postprocess`); a manual `main()` in source becomes a second `CALL main` in the IR and breaks control flow. The tree-walk interpreter still runs first and only executes **top-level** statements, so a file that only defines functions (like the snippet above) will not run `main` during interpretation unless you add other top-level code.
 
 ## Quick start
 
@@ -83,7 +83,7 @@ uv run python -m compiler.main sample.txt --tokens --ast
 
 What you will see:
 
-- Program output from the interpreter (for example `55`)
+- Program output from the interpreter when the file has top-level statements that run (the example above only defines `fn main`; bytecode still enters `main` via `CALL main`, but the interpreter does not call it automatically)
 - The IR plus register-allocation metadata printed by `codegen` (currently a stub)
 
 ## Development commands

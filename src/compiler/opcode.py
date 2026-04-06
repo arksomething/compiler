@@ -2,7 +2,7 @@ for i, line in enumerate(ir):
         if not line:
             continue
 
-        split = re.split(r"[()\s]+", line)
+        split = re.split(r"[(),\s]+", line)
         isAssignment = len(split) > 1 and split[1] == "="
         first = split[0]
         if not first:
@@ -27,7 +27,7 @@ for i, line in enumerate(ir):
                 toWrite = True
                 while toWrite and cur_line_i < len(ir):
                     cur_line = ir[cur_line_i]
-                    cur_split = re.split(r"[()\s]+", cur_line)
+                    cur_split = re.split(r"[(),\s]+", cur_line)
                     if (
                         len(cur_split) >= 4
                         and cur_split[1] == "="

@@ -12,7 +12,8 @@ def codegen(ir, coloring):
         if not line:
             continue
 
-        split = re.split(r"[()\s]+", line)
+        # Split on comma too so ``r4,`` does not stick to registers (e.g. ``CALL f(r4, r5)``).
+        split = re.split(r"[(),\s]+", line)
         isAssignment = len(split) > 1 and split[1] == "="
         first = split[0]
         if not first:
@@ -32,7 +33,10 @@ def codegen(ir, coloring):
         elif first == "JMP":
             parts = [p for p in split if p]
             target = parts[-1].rstrip(",") if len(parts) > 1 else third
-            output.append(f"JMP {target}")
+            if target.startswith("."):
+                output.append(f"BRA {target[1:]}")
+            else:
+                output.append(f"JMP {target}")
         elif first == "CALL":
             callee = split[1] if len(split) > 1 else ""
             output.append("CALL " + callee)
@@ -47,8 +51,7 @@ def codegen(ir, coloring):
         elif fourth == "<":
             output.append(f"CMPLT {first} {third} {fifth}")
         elif first == "PRINT":
-            rest = " ".join(p for p in split[1:] if p).rstrip(",")
-            output.append(f"PRINT {rest}" if rest else "PRINT")
+            output.append("NOP")
         elif third == "CONST":
             output.append(f"LDI {first} {fourth}")
         elif len(split) == 3 and split[1] == "=":
