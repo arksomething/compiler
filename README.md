@@ -117,5 +117,5 @@ uv run mypy src
 
 - No `else` branch support yet
 - Strings are tokenized but not parsed/executed end-to-end
-- Register allocator is intentionally simple (`k = 2` colors)
+- Spilling is not implemented
 - Backend code generation is not implemented yet (stub output only)
