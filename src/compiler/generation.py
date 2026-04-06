@@ -2,8 +2,7 @@ import re
 from collections import defaultdict
 
 def codegen(ir, coloring):
-    """Wiring hook: ``ir`` is IR lines; ``coloring`` has register_colors and spilled_registers."""
-    print(ir, coloring)
+    """``ir`` is IR lines; ``coloring`` has register_colors and spilled_registers."""
 
     func_regs = defaultdict(list)
     arg_n = 0
@@ -31,8 +30,11 @@ def codegen(ir, coloring):
                 output.append(f"MOV rax {split[1]}")
             output.append("RET")
         elif first == "JMP":
-            output.append(f"JMP {third}")
-        elif third == "CALL":
+            parts = [p for p in split if p]
+            target = parts[-1].rstrip(",") if len(parts) > 1 else third
+            output.append(f"JMP {target}")
+        elif first == "CALL":
+            callee = split[1] if len(split) > 1 else ""
             output.append("CALL " + callee)
         elif fourth == "+":
             output.append(f"ADD {first} {third} {fifth}")
@@ -44,6 +46,9 @@ def codegen(ir, coloring):
             output.append(f"CMPLT {first} {fifth} {third}")
         elif fourth == "<":
             output.append(f"CMPLT {first} {third} {fifth}")
+        elif first == "PRINT":
+            rest = " ".join(p for p in split[1:] if p).rstrip(",")
+            output.append(f"PRINT {rest}" if rest else "PRINT")
         elif third == "CONST":
             output.append(f"LDI {first} {fourth}")
         elif len(split) == 3 and split[1] == "=":
@@ -58,3 +63,24 @@ def codegen(ir, coloring):
             output.append(f"BRA {t_name}")
         else:
             output.append("; " + line.strip())
+
+    spilled_regs = coloring["spilled_registers"]
+    color_map = coloring["register_colors"]
+    if spilled_regs:
+        print("SPILLED - MAY BE ERRORS")
+    print("--- codegen ---")
+    colored = []
+
+    pseudo_reg = re.compile(r"^r\d+$")
+    for line in output:
+        parts = []
+        for word in line.split():
+            base = word.rstrip(",")
+            if pseudo_reg.match(base) and base in color_map:
+                parts.append(f"r{color_map[base]}{word[len(base):]}")
+            else:
+                parts.append(word)
+        colored_line = " ".join(parts)
+        colored.append(colored_line)
+        
+    return colored

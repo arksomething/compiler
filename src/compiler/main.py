@@ -10,6 +10,7 @@ try:
     from .parser import Parser
     from .liveness import Liveness
     from .generation import codegen
+    from .processing import postprocess
 except ImportError:
     from liveness import Liveness
     from interpreter import Interpreter
@@ -18,6 +19,7 @@ except ImportError:
     from lowering import lower_ir
     from parser import Parser
     from generation import codegen
+    from processing import postprocess
 
 def print_ast(node, indent=0):
     """Recursively prints the AST with indentation."""
@@ -77,7 +79,9 @@ def scan_file(file_path: str | Path, show_tokens: bool = False, show_ast: bool =
     ir = generate(ast)
     ir = lower_ir(ir)
     ir, coloring = liveness(ir)
-    codegen(ir, coloring)
+    opcodes = codegen(ir, coloring)
+    for line in postprocess(opcodes):
+        print(line)
 
 
 if __name__ == "__main__":

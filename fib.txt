@@ -9,5 +9,3 @@ fn main() {
     print(fib(10))
     return
 }
-
-main()
