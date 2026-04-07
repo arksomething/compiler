@@ -1,0 +1,66 @@
+
+fn alloc(size) {
+    cur_ref = 0
+    cur_size = load(cur_ref)
+    cur_free = load(cur_ref + 1)
+    while ((cur_size < size) + (cur_free == 0)) {
+        cur_ref = cur_ref + (cur_size + 2)
+        cur_size = load(cur_ref)
+        cur_free = load(cur_ref + 1)
+    }
+    if (((cur_ref + 2) + size) > 128) {
+        return 0 - 1
+    }
+    new_ref = cur_ref + 2 + size
+    remainder = cur_size - size - 2
+    if (remainder > 0) {
+        store(cur_ref, size)
+        store(new_ref, remainder)
+        store(new_ref + 1, 1)
+    }
+    store(cur_ref + 1, 0)
+    return cur_ref + 2
+}
+
+fn free(ref) {
+    cur_ref = 0
+    prev_ref = 0
+    header_ref = ref - 2
+    cur_size = load(cur_ref)
+    cur_free = load(cur_ref + 1)
+    while ((cur_ref < header_ref) + (header_ref < cur_ref)) {
+        prev_ref = cur_ref
+        cur_ref = cur_ref + (cur_size + 2)
+        cur_size = load(cur_ref)
+        cur_free = load(cur_ref + 1)
+    }
+
+    isPrevFree = load(prev_ref + 1)
+    if (isPrevFree == 1) {
+        prev_size = load(prev_ref)
+        store(prev_ref, prev_size + 2 + cur_size)
+        store(cur_ref + 1, 1)
+        return
+    }
+    store(cur_ref + 1, 1)
+    return
+}
+
+fn main() {
+    store(0, 126)
+    store(1, 1)
+
+    a = alloc(4)
+    b = alloc(6)
+
+    store(a, 11)
+    store(b, 22)
+
+    free(a)
+    c = alloc(4)
+    store(c, 33)
+
+    return load(c) + load(b) + c + b
+}
+
+print(main())

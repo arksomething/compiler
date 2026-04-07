@@ -85,10 +85,18 @@ class IRGenerator:
             if dest is None:
                 dest = self.current_env.define(node.name)
             self.emit(f"{dest} = {reg}")
-        
         elif node_type == "PrintNode":
             reg = self.generate(node.expr)
             self.emit(f"PRINT {reg}")
+        elif node_type == "LoadNode":
+            reg = self.new_register()
+            addr_reg = self.generate(node.addr)
+            self.emit(f"{reg} = LOAD {addr_reg}")
+            return reg
+        elif node_type == "StoreNode":
+            addr_reg = self.generate(node.addr)
+            expr_reg = self.generate(node.expr)
+            self.emit(f"STORE {expr_reg} {addr_reg}")
         elif node_type == "IfNode":
             condition = self.generate(node.condition)
             t = self.new_label()

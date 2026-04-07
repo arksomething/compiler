@@ -22,6 +22,19 @@ class Environment:
         else:
             return False
 
+class Memory:
+    def __init__(self):
+        self.data = {}
+    
+    def store(self, addr, data):
+        self.data[str(addr)] = data
+    
+    def load(self, addr):
+        if str(addr) in self.data:
+            return self.data[str(addr)]
+        else:
+            raise AssertionError(f"Address {addr} not found")
+        
 class ReturnValue(Exception):
     def __init__(self, value):
         self.value = value
@@ -34,6 +47,7 @@ class Function:
             
 class Interpreter:
     def __init__(self):
+        self.memory = Memory()
         self.global_env = Environment()
         self.current_env = self.global_env
     
@@ -53,6 +67,10 @@ class Interpreter:
             return value
         elif node_type == "PrintNode":
             print(self.interpret(node.expr))
+        elif node_type == "LoadNode":
+            return self.memory.load(self.interpret(node.addr))
+        elif node_type == "StoreNode":
+            self.memory.store(self.interpret(node.addr), self.interpret(node.expr))
         elif node_type == "IfNode":
             if self.interpret(node.condition):
                 for statement in node.statements:

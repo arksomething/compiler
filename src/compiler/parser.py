@@ -3,14 +3,14 @@ try:
     from .ast_nodes import (
         ProgramNode, FunctionNode, AssignmentNode, PrintNode, 
         IfNode, WhileNode, ReturnNode, NumberNode, 
-        IdentifierNode, BinaryOpNode, CallNode
+        IdentifierNode, BinaryOpNode, CallNode, LoadNode, StoreNode
     )
 except ImportError:
     from tokens import TokenType
     from ast_nodes import (
         ProgramNode, FunctionNode, AssignmentNode, PrintNode, 
         IfNode, WhileNode, ReturnNode, NumberNode, 
-        IdentifierNode, BinaryOpNode, CallNode
+        IdentifierNode, BinaryOpNode, CallNode, LoadNode, StoreNode
     )
 
 class Parser:
@@ -78,6 +78,8 @@ class Parser:
             return self.parse_print_stmt()
         elif self.current_token.type == TokenType.IF:
             return self.parse_if_stmt()
+        elif self.current_token.type == TokenType.STORE:
+            return self.parse_store_stmt()
         elif self.current_token.type == TokenType.WHILE:
             return self.parse_while_stmt()
         elif self.current_token.type == TokenType.RETURN:
@@ -98,6 +100,22 @@ class Parser:
         self.expect(TokenType.PRINT)
         expr = self.parse_expression()
         return PrintNode(expr)
+
+    def parse_load_stmt(self):
+        self.expect(TokenType.LOAD)
+        self.expect(TokenType.LPAREN)
+        addr = self.parse_expression()
+        self.expect(TokenType.RPAREN)
+        return LoadNode(addr)
+
+    def parse_store_stmt(self):
+        self.expect(TokenType.STORE)
+        self.expect(TokenType.LPAREN)
+        addr = self.parse_expression()
+        self.expect(TokenType.COMMA)
+        expr = self.parse_expression()
+        self.expect(TokenType.RPAREN)
+        return StoreNode(addr, expr)
 
     def parse_if_stmt(self):
         self.expect(TokenType.IF)
@@ -194,6 +212,8 @@ class Parser:
             number = self.current_token.value
             self.advance()
             return NumberNode(number)
+        elif self.current_token.type == TokenType.LOAD:
+            return self.parse_load_stmt()
         elif self.current_token.type == TokenType.LPAREN:
             self.advance()
             expr = self.parse_expression()

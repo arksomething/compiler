@@ -30,6 +30,21 @@ class PrintNode:
     def __repr__(self):
         return f"PrintNode(expr={self.expr})"
 
+class LoadNode:
+    def __init__(self, addr):
+        self.addr = addr
+
+    def __repr__(self):
+        return f"LoadNode(addr={self.addr})"
+
+class StoreNode:
+    def __init__(self, addr, expr):
+        self.addr = addr
+        self.expr = expr
+
+    def __repr__(self):
+        return f"StoreNode(addr={self.addr} expr={self.expr})"
+
 class IfNode:
     def __init__(self, condition, statements):
         self.condition = condition

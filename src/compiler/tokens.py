@@ -27,6 +27,8 @@ class TokenType(Enum):
     PRINT = auto()       # print keyword
     RETURN = auto()      # return keyword
     EOF = auto()         # end of file
+    LOAD = auto()
+    STORE = auto()
 
 class Token:
     def __init__(self, type: TokenType, value, line, column):
@@ -68,5 +70,7 @@ keywords = {
     "while": TokenType.WHILE,
     "print": TokenType.PRINT,
     "return": TokenType.RETURN,
+    "load": TokenType.LOAD,
+    "store": TokenType.STORE,
 }
 

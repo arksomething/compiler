@@ -1,5 +1,6 @@
 import io
 import pytest
+from compiler.ast_nodes import LoadNode, NumberNode, StoreNode
 from compiler.lexer import tokenize
 from compiler.parser import Parser
 from compiler.interpreter import Interpreter
@@ -56,4 +57,24 @@ def test_interpreter_while_loop(capsys):
     """)
     captured = capsys.readouterr()
     assert captured.out.strip() == "0\n1\n2"
+
+def test_interpreter_store_and_load_nodes():
+    interpreter = Interpreter()
+
+    interpreter.interpret(StoreNode(NumberNode("7"), NumberNode("42")))
+
+    assert interpreter.interpret(LoadNode(NumberNode("7"))) == 42
+
+def test_interpreter_load_preserves_zero_value():
+    interpreter = Interpreter()
+
+    interpreter.interpret(StoreNode(NumberNode("3"), NumberNode("0")))
+
+    assert interpreter.interpret(LoadNode(NumberNode("3"))) == 0
+
+def test_interpreter_load_missing_address_raises():
+    interpreter = Interpreter()
+
+    with pytest.raises(AssertionError, match="Address 99 not found"):
+        interpreter.interpret(LoadNode(NumberNode("99")))
 

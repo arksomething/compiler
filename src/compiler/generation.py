@@ -50,6 +50,10 @@ def codegen(ir, coloring):
             output.append(f"CMPLT {first} {third} {fifth}")
         elif first == "PRINT":
             output.append("NOP")
+        elif first == "STORE":
+            output.append(f"STORE {split[1]} {third}")
+        elif third == "LOAD":
+            output.append(f"LOAD {first} {fourth} {0}")
         elif third == "CONST":
             output.append(f"LDI {first} {fourth}")
         elif len(split) == 3 and split[1] == "=":

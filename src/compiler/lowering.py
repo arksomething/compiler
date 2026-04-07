@@ -2,6 +2,9 @@ import copy
 import re
 from collections import defaultdict
 
+ARG_REGISTER = re.compile(r"^a\d+$")
+PSEUDO_REGISTER = re.compile(r"^r\d+$")
+
 def _split_token(word):
     w = word.rstrip(",")
     return w, word[len(w) :]
@@ -74,12 +77,11 @@ def lower_ir(ir):
         cur_line = []
         for word in line.split():
             w, suf = _split_token(word)
-            if w and w[0] == "r":
-                if len(w) > 1 and w[1] == "a":
-                    cur_line.append("r0" + suf)
-                else:
-                    biggest = max(int(w[1:]) + 1, biggest)
-                    cur_line.append(f"r{int(w[1:]) + 1}" + suf)
+            if w == "rax":
+                cur_line.append("r0" + suf)
+            elif PSEUDO_REGISTER.match(w):
+                biggest = max(int(w[1:]) + 1, biggest)
+                cur_line.append(f"r{int(w[1:]) + 1}" + suf)
             else:
                 cur_line.append(word)
         second_pass.append(" ".join(cur_line))
@@ -89,7 +91,7 @@ def lower_ir(ir):
         cur_line = []
         for word in line.split():
             w, suf = _split_token(word)
-            if w and w[0] == "a":
+            if ARG_REGISTER.match(w):
                 cur_line.append(f"r{biggest + int(w[1:]) + 1}" + suf)
             else:
                 cur_line.append(word)
