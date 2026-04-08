@@ -50,7 +50,8 @@ def lower_ir(ir):
                         and cur_split[2] == "ARG"
                         and cur_split[3] == str(param)
                     ):
-                        ir[cur_line_i] = cur_split[0] + " = " + arg_reg
+                        # ir[cur_line_i] = cur_split[0] + " = " + arg_reg
+                        ir[cur_line_i] = f"{cur_split[0]} = LOAD rsp {param + 1}"
                         search_start = cur_line_i + 1
                         to_write = False
                     else:
@@ -62,11 +63,12 @@ def lower_ir(ir):
         elif third == "CALL":
             callee = fourth
             params_call = [t for t in split[4:] if t]
-            for j, param in enumerate(params_call):
-                if j < len(func_regs[callee]):
-                    a_reg = func_regs[callee][j]
-                    output.append(f"{a_reg} = {param}")
-            output.append("CALL " + callee)
+            for j in range(len(params_call) - 1, -1, -1):
+                output.append("rsp = rsp - 1")
+                output.append(f"STORE {params_call[j]} rsp")
+            output.append("rax = CALL " + callee)
+            if params_call:
+                output.append(f"rsp = rsp + {len(params_call)}")
             output.append(f"{first} = rax")
         else:
             output.append(line.strip())

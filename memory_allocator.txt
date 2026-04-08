@@ -1,6 +1,6 @@
 
 fn alloc(size) {
-    cur_ref = 0
+    cur_ref = 128
     cur_size = load(cur_ref)
     cur_free = load(cur_ref + 1)
     while ((cur_size < size) + (cur_free == 0)) {
@@ -8,7 +8,7 @@ fn alloc(size) {
         cur_size = load(cur_ref)
         cur_free = load(cur_ref + 1)
     }
-    if (((cur_ref + 2) + size) > 128) {
+    if (((cur_ref + 2) + size) > 255) {
         return 0 - 1
     }
     new_ref = cur_ref + 2 + size
@@ -23,8 +23,8 @@ fn alloc(size) {
 }
 
 fn free(ref) {
-    cur_ref = 0
-    prev_ref = 0
+    cur_ref = 128
+    prev_ref = 128
     header_ref = ref - 2
     cur_size = load(cur_ref)
     cur_free = load(cur_ref + 1)
@@ -47,8 +47,8 @@ fn free(ref) {
 }
 
 fn main() {
-    store(0, 126)
-    store(1, 1)
+    store(128, 126)
+    store(129, 1)
 
     a = alloc(4)
     b = alloc(6)
@@ -62,5 +62,3 @@ fn main() {
 
     return load(c) + load(b) + c + b
 }
-
-print(main())

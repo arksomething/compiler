@@ -38,10 +38,19 @@ def codegen(ir, coloring):
         elif first == "CALL":
             callee = split[1] if len(split) > 1 else ""
             output.append("CALL " + callee)
+        elif third == "CALL":
+            callee = fourth if fourth else ""
+            output.append("CALL " + callee)
         elif fourth == "+":
-            output.append(f"ADD {first} {third} {fifth}")
+            if re.match(r"r\d+\b", fifth):
+                output.append(f"ADD {first} {third} {fifth}")
+            else:
+                output.append(f"ADDI {first} {third} {fifth}")
         elif fourth == "-":
-            output.append(f"SUB {first} {third} {fifth}")
+            if re.match(r"r\d+\b", fifth):
+                output.append(f"SUB {first} {third} {fifth}")
+            else:
+                output.append(f"ADDI {first} {third} {-int(fifth)}")
         elif fourth == "==":
             output.append(f"CMPEQ {first} {third} {fifth}")
         elif fourth == ">":
@@ -53,7 +62,7 @@ def codegen(ir, coloring):
         elif first == "STORE":
             output.append(f"STORE {split[1]} {third}")
         elif third == "LOAD":
-            output.append(f"LOAD {first} {fourth} {0}")
+            output.append(f"LOAD {first} {fourth} {fifth if fifth else 0}")
         elif third == "CONST":
             output.append(f"LDI {first} {fourth}")
         elif len(split) == 3 and split[1] == "=":
@@ -70,19 +79,25 @@ def codegen(ir, coloring):
             output.append("; " + line.strip())
 
     spilled_regs = coloring["spilled_registers"]
-    color_map = coloring["register_colors"]
+    color_map = dict(coloring["register_colors"])
+    color_map["rsp"] = 7
+    color_map["s5"] = 5
+    color_map["s6"] = 6
     if spilled_regs:
         print("SPILLED - MAY BE ERRORS")
     print("--- codegen ---")
     colored = []
 
-    pseudo_reg = re.compile(r"^r\d+$")
+    pseudo_reg = re.compile(r"^r(\d+|ax|sp)$|^s[56]$")
     for line in output:
         parts = []
         for word in line.split():
             base = word.rstrip(",")
-            if pseudo_reg.match(base) and base in color_map:
-                parts.append(f"r{color_map[base]}{word[len(base):]}")
+            if pseudo_reg.match(base):
+                if base in color_map:
+                    parts.append(f"r{color_map[base]}{word[len(base):]}")
+                else:
+                    parts.append(f"r6{word[len(base):]}")
             else:
                 parts.append(word)
         colored_line = " ".join(parts)

@@ -75,7 +75,7 @@ def scan_file(file_path: str | Path, show_tokens: bool = False, show_ast: bool =
     ir = lower_ir(ir)
     ir, coloring = analyze_liveness(ir)
     opcodes = codegen(ir, coloring)
-    for line in postprocess(opcodes):
+    for line in postprocess(opcodes, coloring):
         print(line)
     return True
 

@@ -3,6 +3,11 @@ import copy
 
 REGEX_REGISTERS = re.compile(r'\b[rR]\d+\b')
 
+# Data RAM map (256 words): 0..99 stack (keep SP in this band if you use low memory),
+# 100..127 compiler spill slots, 128..255 heap (see memory_allocator.txt).
+SPILL_MEM_BASE = 100
+SPILL_MEM_LIMIT = 128  # exclusive; first heap word
+
 
 def _spill_site_kind(reg: str, line: str) -> str:
     # how reg is used
@@ -25,8 +30,15 @@ def _spill_site_kind(reg: str, line: str) -> str:
 class Liveness:
     def __init__(self, ir):
         self.ir = list(ir) if ir is not None else []
+        self.fn_params = {}
 
     def analyze(self):
+        self.countParams()
+        self.parseNodes()
+        self.cfg()
+        self.liveNodes()
+        self.liveInstrs()
+        self.callSaves()
         self.parseNodes()
         self.cfg()
         self.liveNodes()
@@ -40,16 +52,24 @@ class Liveness:
             "spill_locations": self.spill_locations,
         }
         return self.ir, coloring
+
+    def countParams(self):
+        for line in self.ir:
+            split = re.split(r"[(),\s]+", line)
+            if split[0] == "FUNC":
+                param_names = [p for p in split[2:] if p]
+                params = len(param_names)
+                self.fn_params[split[1]] = params
     
     def parseNodes(self):
         blocks = []
         cur_block = []
         for i, line in enumerate(self.ir):
-            if re.search(r'\b(JMP)|(RET)|(BR)\b', line):
+            if re.search(r'\b(JMP)|(RET)|(BR)|(r0 = CALL)\b', line): # signals block end
                 cur_block.append(line)
                 blocks.append(cur_block)
                 cur_block = []
-            elif re.match(r'(\.\d+:)|(FUNC)', line):
+            elif re.match(r'(\.\d+:)|(FUNC)', line): # signals block start
                 if cur_block:
                     blocks.append(cur_block)
                 cur_block = []
@@ -111,7 +131,61 @@ class Liveness:
                     instr.live_out = set(instrs[i + 1].live_in)
 
                 instr.live_in = instr.uses | (instr.live_out - instr.defs)
-        
+
+    def callSaves(self):
+        line_to_live_out = {}
+
+        i = 0
+        for node in self.nodes:
+            for instr in node.instrs:
+                if "CALL" in instr.code:
+                    line_to_live_out[i] = instr.live_out - {"r0"}
+                i += 1
+
+        saves_before = {}
+        restores_after = {}
+
+        for call_i, regs in line_to_live_out.items():
+            if not regs:
+                continue
+
+            insert_at = call_i
+            for j in range(call_i - 1, -1, -1):
+                line = self.ir[j]
+                if "STORE" in line and "rsp" in line:
+                    insert_at = j
+                elif "rsp = rsp -" in line:
+                    insert_at = j
+                    break
+                else:
+                    break
+
+            save_instrs = []
+            for r in sorted(regs):
+                save_instrs.append("rsp = rsp - 1")
+                save_instrs.append(f"STORE {r} rsp")
+            saves_before[insert_at] = save_instrs
+
+            restore_instrs = []
+            for r in sorted(regs):
+                restore_instrs.append(f"{r} = LOAD rsp 0")
+                restore_instrs.append("rsp = rsp + 1")
+            restore_at = call_i
+            if call_i + 1 < len(self.ir) and "rsp = rsp +" in self.ir[call_i + 1]:
+                restore_at = call_i + 1
+            restores_after[restore_at] = restore_instrs
+
+        new_ir = []
+        for j, line in enumerate(self.ir):
+            if j in saves_before:
+                new_ir.extend(saves_before[j])
+            new_ir.append(line)
+            if j in restores_after:
+                new_ir.extend(restores_after[j])
+        self.ir = new_ir
+
+
+
     def buildInterference(self):
         self.interferenceGraph = {}
 
@@ -133,7 +207,7 @@ class Liveness:
                         self.interferenceGraph[out].add(reg)
 
     def coloring(self):
-        k = 7
+        k = 5
         working_graph = copy.deepcopy(self.interferenceGraph)
         working_keys = set(working_graph.keys())
         s = []
@@ -177,10 +251,11 @@ class Liveness:
                 colors[reg] = next(iter(available))
 
         self.register_colors = colors
-        self.spilled_registers = spilled
+        self.spilled_registers = list(spilled)
 
     def spill(self):
-        spilled = self.spilled_registers
+        spilled = set(self.spilled_registers)
+        spill_i = {r:i for i, r in enumerate(spilled)}
         self.spill_locations = {reg: [] for reg in spilled}
         loads_before = {}
         stores_after = {}
@@ -189,17 +264,30 @@ class Liveness:
             for reg in mentioned & spilled:
                 kind = _spill_site_kind(reg, line)
                 self.spill_locations[reg].append((i, line, kind))
+                addr = SPILL_MEM_BASE + spill_i[reg]
+                if addr >= SPILL_MEM_LIMIT:
+                    raise ValueError(
+                        f"spill address {addr} for {reg} must stay < {SPILL_MEM_LIMIT} (heap starts at {SPILL_MEM_LIMIT})"
+                    )
                 if kind in ("use", "def_and_use"):
-                    loads_before.setdefault(i, []).append(f"SPILL_LOAD {reg}")
+                    loads_before.setdefault(i, []).append(f"s5 = CONST {addr}")
+                    loads_before.setdefault(i, []).append(f"s6 = LOAD s5 0")
+                    loads_before.setdefault(i, []).append(f"s5 = CONST 0")
                 if kind in ("def", "def_and_use"):
-                    stores_after.setdefault(i, []).append(f"SPILL_STORE {reg}")
+                    stores_after.setdefault(i, []).append(f"s5 = CONST {addr}")
+                    stores_after.setdefault(i, []).append(f"STORE s6 s5")
+                    stores_after.setdefault(i, []).append(f"s5 = CONST 0")
 
         snapshot = list(self.ir)
         new_ir = []
         for j, line in enumerate(snapshot):
+            modified = line
+            mentioned = set(REGEX_REGISTERS.findall(line))
+            for reg in sorted(mentioned & spilled):
+                modified = re.sub(rf"\b{re.escape(reg)}\b", "s6", modified)
             for pseudo in loads_before.get(j, []):
                 new_ir.append(pseudo)
-            new_ir.append(line)
+            new_ir.append(modified)
             for pseudo in stores_after.get(j, []):
                 new_ir.append(pseudo)
         self.ir[:] = new_ir
