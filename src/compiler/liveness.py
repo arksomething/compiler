@@ -1,12 +1,153 @@
 import re
 import copy
 
-REGEX_REGISTERS = re.compile(r'\b[rR]\d+\b')
+REGEX_REGISTERS = re.compile(r"\b(?:[rR]\d+|rax|rsp)\b")
+REGEX_NUMBER = re.compile(r"-?\d+$")
 
 # Data RAM map (256 words): 0..99 stack (keep SP in this band if you use low memory),
 # 100..127 compiler spill slots, 128..255 heap (see memory_allocator.txt).
 SPILL_MEM_BASE = 100
 SPILL_MEM_LIMIT = 128  # exclusive; first heap word
+
+NAC = ("NAC", None)
+
+
+def Const(n):
+    return ("CONST", n)
+
+
+def copy_env(env):
+    return copy.copy(env)
+
+
+def env_equal(a, b):
+    return a == b
+
+
+def join_vals(a, b):
+    if a == b:
+        return a
+    return NAC
+
+
+def join_envs(a, b):
+    joined = {}
+    for reg in set(a.keys()) | set(b.keys()):
+        if reg in a and reg in b:
+            joined[reg] = join_vals(a[reg], b[reg])
+    return joined
+
+
+def _const_lookup(word, env):
+    if REGEX_NUMBER.fullmatch(word):
+        return Const(int(word))
+    return env.get(word, NAC)
+
+
+def _eval_const(op, left, right):
+    if left[0] != "CONST" or right[0] != "CONST":
+        return NAC
+
+    lhs = left[1]
+    rhs = right[1]
+    if op == "+":
+        return Const(lhs + rhs)
+    if op == "-":
+        return Const(lhs - rhs)
+    if op == "*":
+        return Const(lhs * rhs)
+    if op == "/":
+        if rhs == 0:
+            return NAC
+        return Const(lhs // rhs)
+    if op == "==":
+        return Const(int(lhs == rhs))
+    if op == "!=":
+        return Const(int(lhs != rhs))
+    if op == "<":
+        return Const(int(lhs < rhs))
+    if op == ">":
+        return Const(int(lhs > rhs))
+    return NAC
+
+
+def _rewrite_line(line, env):
+    if "=" in line:
+        lhs, rhs = line.split("=", 1)
+        lhs = lhs.strip()
+        rhs = rhs.strip()
+        split = rhs.split()
+
+        if len(split) == 1:
+            ret = _const_lookup(split[0], env)
+            if ret[0] == "CONST":
+                return f"{lhs} = CONST {ret[1]}"
+            return line
+
+        if len(split) == 3:
+            left = _const_lookup(split[0], env)
+            right = _const_lookup(split[2], env)
+            ret = _eval_const(split[1], left, right)
+            if ret[0] == "CONST":
+                return f"{lhs} = CONST {ret[1]}"
+
+            if (
+                split[1] == "+"
+                and left[0] == "CONST"
+                and right[0] != "CONST"
+                and REGEX_REGISTERS.fullmatch(split[2])
+            ):
+                return f"{lhs} = {split[2]} + {left[1]}"
+
+            if split[1] in {"+", "-"} and right[0] == "CONST":
+                return f"{lhs} = {split[0]} {split[1]} {right[1]}"
+
+        return line
+
+    split = re.split(r"[(),\s]+", line.strip())
+    split = [part for part in split if part]
+    if len(split) == 2 and split[0] == "RET":
+        ret = _const_lookup(split[1], env)
+        if ret[0] == "CONST":
+            return f"RET {ret[1]}"
+    return line
+
+
+def _update_env(line, env):
+    if "=" not in line:
+        return
+
+    lhs, rhs = line.split("=", 1)
+    lhs = lhs.strip()
+    rhs = rhs.strip()
+    split = rhs.split()
+
+    if not REGEX_REGISTERS.fullmatch(lhs):
+        return
+
+    if len(split) == 2 and split[0] == "CONST" and REGEX_NUMBER.fullmatch(split[1]):
+        env[lhs] = Const(int(split[1]))
+        return
+
+    if len(split) == 1:
+        ret = _const_lookup(split[0], env)
+        if ret[0] == "CONST":
+            env[lhs] = ret
+        else:
+            env[lhs] = NAC
+        return
+
+    if len(split) == 3:
+        left = _const_lookup(split[0], env)
+        right = _const_lookup(split[2], env)
+        ret = _eval_const(split[1], left, right)
+        if ret[0] == "CONST":
+            env[lhs] = ret
+        else:
+            env[lhs] = NAC
+        return
+
+    env[lhs] = NAC
 
 
 def _spill_site_kind(reg: str, line: str) -> str:
@@ -36,9 +177,17 @@ class Liveness:
         self.countParams()
         self.parseNodes()
         self.cfg()
+        self.constantPropagation()
+        self.parseNodes()
+        self.cfg()
         self.liveNodes()
         self.liveInstrs()
         self.callSaves()
+        self.parseNodes()
+        self.cfg()
+        self.liveNodes()
+        self.liveInstrs()
+        self.deadCode()
         self.parseNodes()
         self.cfg()
         self.liveNodes()
@@ -65,7 +214,9 @@ class Liveness:
         blocks = []
         cur_block = []
         for i, line in enumerate(self.ir):
-            if re.search(r'\b(JMP)|(RET)|(BR)|(r0 = CALL)\b', line): # signals block end
+            if re.search(
+                r"\b(JMP)|(RET)|(BR)|((r0|rax) = CALL)\b", line
+            ):  
                 cur_block.append(line)
                 blocks.append(cur_block)
                 cur_block = []
@@ -85,6 +236,9 @@ class Liveness:
         labelToBlock = {}
         self.nodeMap = {f"b{i}":node for i, node in enumerate(self.nodes)}
         # print(self.nodeMap)
+        for node in self.nodes:
+            node.next = set()
+            node.prev = set()
         for i, node in enumerate(self.nodes):
             if len(node.code) > 0 and re.match(r'\.\d+:', node.code[0]):
                 m = re.match(r'\.\d+', node.code[0])
@@ -99,6 +253,31 @@ class Liveness:
                 # must add the next one as well.
                 if i != len(self.nodes) - 1:
                     node.next.add(f"b{i + 1}")
+
+        for i, node in enumerate(self.nodes):
+            for nxt in node.next:
+                self.nodeMap[nxt].prev.add(f"b{i}")
+
+    def constantPropagation(self):
+        changed = True
+        while changed:
+            changed = False
+            for node in self.nodes:
+                old_in = copy_env(node.reg_in)
+                old_out = copy_env(node.reg_out)
+                node.calculateIn(self)
+                node.recalculateOutFromIn(self)
+                if not env_equal(old_in, node.reg_in) or not env_equal(old_out, node.reg_out):
+                    changed = True
+
+        new_ir = []
+        for node in self.nodes:
+            cur_in = copy_env(node.reg_in)
+            for line in node.code:
+                new_line = _rewrite_line(line, cur_in)
+                new_ir.append(new_line)
+                _update_env(new_line, cur_in)
+        self.ir = new_ir
 
     def liveNodes(self):
         rev_nodes = list(reversed(self.nodes))
@@ -139,7 +318,7 @@ class Liveness:
         for node in self.nodes:
             for instr in node.instrs:
                 if "CALL" in instr.code:
-                    line_to_live_out[i] = instr.live_out - {"r0"}
+                    line_to_live_out[i] = instr.live_out - {"r0", "rax"}
                 i += 1
 
         saves_before = {}
@@ -184,15 +363,30 @@ class Liveness:
                 new_ir.extend(restores_after[j])
         self.ir = new_ir
 
+    def deadCode(self):
+        deadLines = set()
+        i = 0
+        for node in self.nodes:
+            for instr in node.instrs:
+                if re.match(r"^(?!.*\bCALL\b)r\d+\s*=", instr.code):
+                    if instr.code.split(" ")[0] not in instr.live_out:
+                        deadLines.add(i)
+                i += 1 
+        new_ir = []
+        for i, line in enumerate(self.ir):
+            if i not in deadLines:
+                new_ir.append(line)
 
+        self.ir = new_ir
 
     def buildInterference(self):
         self.interferenceGraph = {}
 
         for node in self.nodes:
             for instr in node.instrs:
-                if re.match(r"r\d+\b", instr.code):
-                    reg = instr.code.split()[0]
+                m = re.match(r"^(rax|r\d+|rsp)\b", instr.code)
+                if m:
+                    reg = m.group(1)
                     if reg not in self.interferenceGraph:
                         self.interferenceGraph[reg] = set()
 
@@ -207,7 +401,7 @@ class Liveness:
                         self.interferenceGraph[out].add(reg)
 
     def coloring(self):
-        k = 5
+        k = 4
         working_graph = copy.deepcopy(self.interferenceGraph)
         working_keys = set(working_graph.keys())
         s = []
@@ -250,6 +444,9 @@ class Liveness:
             else:
                 colors[reg] = next(iter(available))
 
+        spilled -= {"rax", "rsp"}
+        colors["rax"] = 0
+        colors["rsp"] = 7
         self.register_colors = colors
         self.spilled_registers = list(spilled)
 
@@ -262,6 +459,8 @@ class Liveness:
         for i, line in enumerate(self.ir):
             mentioned = set(REGEX_REGISTERS.findall(line))
             for reg in mentioned & spilled:
+                if reg in ("rax", "rsp"):
+                    continue
                 kind = _spill_site_kind(reg, line)
                 self.spill_locations[reg].append((i, line, kind))
                 addr = SPILL_MEM_BASE + spill_i[reg]
@@ -299,6 +498,20 @@ class Node:
         self.uses = set() # use
         self.nextLabels = set()
         self.next = set()
+        self.prev = set()
+        self.live_in = set()
+        self.live_out = set()
+        self.reg_in = {}
+        self.reg_out = {}
+        self.calculateLiveness(code)
+
+    def calculateLiveness(self, code):
+        self.code = code
+        self.defs = set()
+        self.uses = set()
+        self.nextLabels = set()
+        self.next = set()
+        self.prev = set()
         self.live_in = set()
         self.live_out = set()
         self.instrs = [Instr(line) for line in code]
@@ -319,6 +532,26 @@ class Node:
             if i == len(code) - 1:
                 if re.search(r"\b(JMP|RET|BR)\b", line):
                     self.nextLabels = set(re.findall(r"\.\d+", line))
+
+    def calculateIn(self, liveness):
+        if not self.prev:
+            self.reg_in = {}
+            return
+
+        regs = None
+        for prev in self.prev:
+            prev_out = liveness.nodeMap[prev].reg_out
+            if regs is None:
+                regs = copy_env(prev_out)
+            else:
+                regs = join_envs(regs, prev_out)
+        self.reg_in = regs if regs is not None else {}
+
+    def recalculateOutFromIn(self, liveness):
+        regs = copy_env(self.reg_in)
+        for line in self.code:
+            _update_env(line, regs)
+        self.reg_out = regs
 
     def __repr__(self):
         head = self.code[0] if self.code else "?"

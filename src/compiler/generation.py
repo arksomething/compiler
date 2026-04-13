@@ -1,6 +1,22 @@
 import re
 from collections import defaultdict
 
+REGISTER_OPERAND = re.compile(r"^(?:r\d+|s[56])\b")
+
+
+def _physical_reg_number(base: str, color_map: dict) -> int:
+    """Map IR register name to hardware register index (0..7)."""
+    if base == "rax":
+        return 0
+    if base == "rsp":
+        return 7
+    if base == "s5":
+        return 5
+    if base == "s6":
+        return 6
+    return color_map[base] + 1
+
+
 def codegen(ir, coloring):
     func_regs = defaultdict(list)
     arg_n = 0
@@ -42,15 +58,17 @@ def codegen(ir, coloring):
             callee = fourth if fourth else ""
             output.append("CALL " + callee)
         elif fourth == "+":
-            if re.match(r"r\d+\b", fifth):
+            if REGISTER_OPERAND.match(fifth):
                 output.append(f"ADD {first} {third} {fifth}")
             else:
-                output.append(f"ADDI {first} {third} {fifth}")
+                if int(fifth) != 0 or first != third:
+                    output.append(f"ADDI {first} {third} {fifth}")
         elif fourth == "-":
-            if re.match(r"r\d+\b", fifth):
+            if REGISTER_OPERAND.match(fifth):
                 output.append(f"SUB {first} {third} {fifth}")
             else:
-                output.append(f"ADDI {first} {third} {-int(fifth)}")
+                if int(fifth) != 0 or first != third:
+                    output.append(f"ADDI {first} {third} {-int(fifth)}")
         elif fourth == "==":
             output.append(f"CMPEQ {first} {third} {fifth}")
         elif fourth == ">":
@@ -66,7 +84,8 @@ def codegen(ir, coloring):
         elif third == "CONST":
             output.append(f"LDI {first} {fourth}")
         elif len(split) == 3 and split[1] == "=":
-            output.append(f"MOV {first} {third}")
+            if first != third:
+                output.append(f"MOV {first} {third}")
         elif first == "BR" and len(split) >= 6 and split[2] == "label" and split[4] == "label":
             reg = split[1][:-1] if split[1].endswith(",") else split[1]
             true_l = split[3][:-1] if split[3].endswith(",") else split[3]
@@ -80,12 +99,9 @@ def codegen(ir, coloring):
 
     spilled_regs = coloring["spilled_registers"]
     color_map = dict(coloring["register_colors"])
-    color_map["rsp"] = 7
-    color_map["s5"] = 5
-    color_map["s6"] = 6
-    if spilled_regs:
-        print("SPILLED - MAY BE ERRORS")
-    print("--- codegen ---")
+    color_map.setdefault("s5", 5)
+    color_map.setdefault("s6", 6)
+
     colored = []
 
     pseudo_reg = re.compile(r"^r(\d+|ax|sp)$|^s[56]$")
@@ -95,9 +111,8 @@ def codegen(ir, coloring):
             base = word.rstrip(",")
             if pseudo_reg.match(base):
                 if base in color_map:
-                    parts.append(f"r{color_map[base]}{word[len(base):]}")
-                else:
-                    parts.append(f"r6{word[len(base):]}")
+                    phys = _physical_reg_number(base, color_map)
+                    parts.append(f"r{phys}{word[len(base):]}")
             else:
                 parts.append(word)
         colored_line = " ".join(parts)

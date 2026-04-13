@@ -80,7 +80,7 @@ def lower_ir(ir):
         for word in line.split():
             w, suf = _split_token(word)
             if w == "rax":
-                cur_line.append("r0" + suf)
+                cur_line.append("rax" + suf)
             elif PSEUDO_REGISTER.match(w):
                 biggest = max(int(w[1:]) + 1, biggest)
                 cur_line.append(f"r{int(w[1:]) + 1}" + suf)

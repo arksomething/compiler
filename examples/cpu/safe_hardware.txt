@@ -44,6 +44,7 @@ fn main() {
     print(iter_fib(10))
     print(max2(3, 7))
     print(const42())
-    print(sub_demo(8, 3))
-    return
+    demo = sub_demo(8, 3)
+    print(demo)
+    return demo
 }

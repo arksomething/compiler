@@ -1,19 +1,21 @@
 # Toy Compiler in Python
 
-A small compiler for a custom language with functions, control flow, expressions, and recursion.
+A small compiler for a custom language with functions, control flow, expressions, recursion, and an assembly-like backend.
 
 Generally, this repo was written code-agent free with the exception of uninteresting tasks like wiring imports, README.md changes, or mass assembly/regex changes. 
 
 For a language-focused reference, see `LANGUAGE.md`.
 
-Running the CLI currently does all of the following in sequence:
+Running the CLI by default does all of the following in sequence:
 
 1. Tokenize source text
 2. Parse tokens into an AST
-3. Interpret the AST (executes the program)
-4. Generate IR
-5. Run liveness analysis and register coloring/spill insertion
-6. Pass IR and allocation data to the codegen hook
+3. Generate IR
+4. Lower IR for the backend calling convention
+5. Run constant propagation, dead-code cleanup, liveness analysis, register coloring, and spill insertion
+6. Emit assembly-like backend code
+
+If you want the tree-walking interpreter instead, run the CLI with `--interpret`.
 
 ## Language at a glance
 
@@ -80,6 +82,9 @@ uv run python -m compiler examples/language/fib.txt
 
 # Debug frontend stages
 uv run python -m compiler examples/language/sample.txt --tokens --ast
+
+# Run the interpreter only
+uv run python -m compiler examples/language/sample.txt --interpret
 ```
 
 More sample inputs live under `examples/`, including backend-safe programs
@@ -87,8 +92,9 @@ documented in `examples/cpu/CPU_PROGRAMS.md`.
 
 What you will see:
 
-- Program output from the interpreter when the file has top-level statements that run (the example above only defines `fn main`; bytecode still enters `main` via `CALL main`, but the interpreter does not call it automatically)
-- The IR plus register-allocation metadata printed by `codegen` (currently a stub)
+- By default, emitted assembly-like backend code that starts at `main`
+- Interpreter output only when you explicitly pass `--interpret`
+- For backend-oriented examples, prefer files under `examples/cpu/`
 
 ## Development commands
 
@@ -108,8 +114,8 @@ uv run mypy src
 - `src/compiler/ast_nodes.py`: AST node definitions
 - `src/compiler/interpreter.py`: tree-walk interpreter with lexical scoping
 - `src/compiler/ir.py`: IR generation
-- `src/compiler/liveness.py`: CFG, liveness, interference graph, coloring/spilling
-- `src/compiler/generation.py`: codegen wiring hook
+- `src/compiler/liveness.py`: CFG, constant propagation, dead-code cleanup, liveness, interference graph, coloring/spilling
+- `src/compiler/generation.py`: backend code generation
 - `tests/`: lexer, parser, and interpreter tests
 - `examples/`: organized source-language and backend-safe sample programs
 
@@ -117,5 +123,6 @@ uv run mypy src
 
 - No `else` branch support yet
 - Strings are tokenized but not parsed/executed end-to-end
-- Spilling is not implemented
-- Backend code generation is not implemented yet (stub output only)
+- `print(...)` is interpreter-visible, but currently lowers to `NOP` in backend output
+- `*`, `/`, and `!=` are parsed by the front end, but are not fully lowered by the current backend
+- The backend output is emitted as assembly-like text; there is no in-repo assembler/emulator wiring for executing that output end to end
