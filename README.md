@@ -17,6 +17,10 @@ Running the CLI by default does all of the following in sequence:
 
 If you want the tree-walking interpreter instead, run the CLI with `--interpret`.
 
+This repo stops at emitted assembly-like backend text. The assembler and CPU
+implementation live in the separate FPGA repo:
+`https://github.com/arksomething/fpga`.
+
 ## Language at a glance
 
 ### Supported constructs
@@ -95,6 +99,7 @@ What you will see:
 - By default, emitted assembly-like backend code that starts at `main`
 - Interpreter output only when you explicitly pass `--interpret`
 - For backend-oriented examples, prefer files under `examples/cpu/`
+- Assembly emission only: assembling/running that output happens in the FPGA repo at `https://github.com/arksomething/fpga`
 
 ## Development commands
 
@@ -125,4 +130,4 @@ uv run mypy src
 - Strings are tokenized but not parsed/executed end-to-end
 - `print(...)` is interpreter-visible, but currently lowers to `NOP` in backend output
 - `*`, `/`, and `!=` are parsed by the front end, but are not fully lowered by the current backend
-- The backend output is emitted as assembly-like text; there is no in-repo assembler/emulator wiring for executing that output end to end
+- The backend output is emitted as assembly-like text only; the assembler and CPU implementation live in the separate FPGA repo: `https://github.com/arksomething/fpga`
